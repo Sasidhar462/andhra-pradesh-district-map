@@ -1,14 +1,20 @@
 # Andhra Pradesh District Explorer
 
-Interactive district map for Andhra Pradesh with direct links to the district-specific Notion notes pages.
+Interactive Leaflet map with 28 Andhra Pradesh district records and links to the corresponding Notion notes pages.
 
-## Run locally
-Open `index.html` in a browser while online.
+## Features
+- District polygons rendered from an open GeoJSON boundary dataset.
+- Click a district to highlight it and select its Notion notes page.
+- A district chip index remains available if the boundary data endpoint is unavailable.
+- Quick notes can be saved in the current browser (local storage); permanent notes belong in Notion.
+- Responsive layout for desktop and mobile.
 
-## Publish with GitHub Pages
-1. Open repository **Settings → Pages**.
-2. Under **Build and deployment**, choose **Deploy from a branch**.
-3. Select branch **main** and folder **/(root)**; save.
-4. Your site will be available at https://sasidhar462.github.io/andhra-pradesh-district-map/
+## GitHub Pages
+The repository uses GitHub Actions to deploy the static site from the `main` branch.
 
-The map uses Leaflet and OpenStreetMap tiles. District boundary shapes are loaded from the GeoJSON source configured in index.html. District links open the matching Notion pages.
+If GitHub Pages has not yet been activated for this repository, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**.
+
+Expected site URL:
+https://sasidhar462.github.io/andhra-pradesh-district-map/
+
+Map tiles © OpenStreetMap contributors. District boundary dataset is provided by the open `satdixit/india-shapefiles` repository. Boundaries are for general reference, not legal or cadastral use.
