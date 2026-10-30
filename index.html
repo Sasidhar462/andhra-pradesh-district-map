@@ -64,7 +64,7 @@ function overpassRelationToFeature(rel){
   return {type:"Feature",id:rel.id,properties:{...props,name:props.name||props["official_name"]||"Unnamed district"},geometry:coords.length===1?{type:"Polygon",coordinates:coords[0]}:{type:"MultiPolygon",coordinates:coords}};
 }
 async function fetchDistrictBoundaries(endpoint){
-  const query='[out:json][timeout:90];area["ISO3166-2"="IN-AP"]["admin_level"="4"]->.ap;relation["boundary"="administrative"]["admin_level"="5"](area.ap);out tags geom;';
+  const query='[out:json][timeout:90];area["boundary"="administrative"]["admin_level"="4"]["name"="Andhra Pradesh"]->.ap;relation["boundary"="administrative"]["admin_level"="5"](area.ap);out tags geom;';
   const response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},body:"data="+encodeURIComponent(query)});
   if(!response.ok)throw new Error("Overpass HTTP "+response.status);
   const payload=await response.json();
