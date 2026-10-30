@@ -1,20 +1,30 @@
-# Andhra Pradesh District Explorer
+# Andhra Pradesh District Notes Map
 
-An interactive Leaflet map for the current 28-district configuration of Andhra Pradesh, with direct links to each district's Notion notes page.
+A static web app for exploring all 28 Andhra Pradesh districts and keeping a separate editable note for each district.
 
-## Districts and updates
-- Includes the two districts created with effect from 31 December 2025: **Markapuram** and **Polavaram**.
-- Retains **Sri Potti Sriramulu Nellore** as a district; it was not abolished. Its boundary changed in the 2025 reorganisation.
-- Reads current district boundary relations from OpenStreetMap (Overpass API), rather than using the older pre-2025 GeoJSON boundary file.
-- Verifies that all 28 districts match before displaying the boundary layer. The district list still works if the boundary API is unavailable.
-- Clicking a polygon or district chip selects the district and exposes its Notion notes link.
+## Interaction
+
+- Click a district marker on the map or a district in the index to open its notes drawer.
+- The drawer includes a text editor, topic tags, word/character counts, previous/next district navigation, and a link to that district's Notion page.
+- Notes auto-save to the browser's local storage under `ap_district_notes_v1`.
+- Use **Copy note** or **Copy all notes for Notion** to copy Markdown, then paste it into Notion. The static site does not write directly to Notion.
+- Search and filter districts by region or whether notes exist.
+- Switch between street, satellite, and light map tiles.
+
+District markers and the index remain interactive even when the optional OpenStreetMap boundary overlay cannot be loaded. Marker positions are representative district/headquarters locations, not legal boundary data.
+
+## Current district set
+
+Includes all 28 districts, including **Markapuram** and **Polavaram** (created effective 31 December 2025), and retains **Sri Potti Sriramulu Nellore**.
 
 ## Deploy
-Published as a static site with GitHub Pages from the `main` branch root.
+
+Published with GitHub Pages from the `main` branch root:
 
 https://sasidhar462.github.io/andhra-pradesh-district-map/
 
-## Sources and attribution
-- Government of Andhra Pradesh final Gazette notifications dated 30 December 2025, effective 31 December 2025.
-- OpenStreetMap administrative boundary relations (admin_level=5), queried dynamically through Overpass.
-- © OpenStreetMap contributors. Boundary data is under the Open Database License (ODbL). Map geometry is for general reference, not legal or cadastral use.
+## Attribution
+
+- OpenStreetMap contributors (boundary and map data where available).
+- CARTO and Esri basemap tiles.
+- Boundary information is for general reference only, not legal or cadastral use.
