@@ -76,7 +76,9 @@ function districtForFeature(feature){
   for(const key of keys){
     const raw=p[key]; if(!raw)continue;
     for(const candidate of String(raw).split(";")){
-      const hit=lookup.get(norm(candidate.trim())); if(hit)return hit;
+      const cleaned=norm(candidate.trim());
+      const hit=lookup.get(cleaned)||lookup.get(cleaned.replace(/district$/,""));
+      if(hit)return hit;
     }
   }
   return null;
