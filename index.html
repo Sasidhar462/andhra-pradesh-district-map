@@ -24,9 +24,85 @@ function selectDistrict(d,shape){activeDistrict=d;if(shapes&&activeShape)shapes.
 document.getElementById('name').textContent=d.name;document.getElementById('meta').textContent='Headquarters: '+d.hq+' · '+d.region;document.getElementById('notion').href=d.url;document.getElementById('quickNote').value=localStorage.getItem('ap-district-'+norm(d.name))||'';document.getElementById('status').textContent='Selected '+d.name+'. Open Notion for permanent notes.';}
 districts.forEach(d=>{const b=document.createElement('button');b.className='chip';b.textContent=d.name;b.addEventListener('click',()=>{const shape=shapes&&shapes.getLayers().find(x=>districtForFeature(x.feature)?.name===d.name);selectDistrict(d,shape);if(shape)map.fitBounds(shape.getBounds(),{padding:[20,20],maxZoom:9});else document.getElementById('status').textContent='District page is available; its polygon was not matched in the geometry source.';});document.getElementById('districtList').appendChild(b);});
 document.getElementById('save').addEventListener('click',()=>{if(!activeDistrict){document.getElementById('status').textContent='Select a district first.';return;}localStorage.setItem('ap-district-'+norm(activeDistrict.name),document.getElementById('quickNote').value);document.getElementById('status').textContent='Quick note saved in this browser.';});
-async function fetchGeo(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}
-(async()=>{const urls=[
-'https://raw.githubusercontent.com/datta07/INDIAN-SHAPEFILES/master/STATES/ANDHRA%20PRADESH/ANDHRA%20PRADESH_DISTRICTS.geojson',
-'https://raw.githubusercontent.com/satdixit/india-shapefiles/master/STATES/ANDHRA%20PRADESH/ANDHRA%20PRADESH_DISTRICTS.geojson'
-];let last=null;for(const u of urls){try{const g=await fetchGeo(u);const features=(g.features||[]).filter(f=>districtForFeature(f));if(!features.length)throw new Error('Dataset district names did not match');shapes=L.geoJSON({type:'FeatureCollection',features},{style:{color:'#fff',weight:1.5,fillColor:'#5794c7',fillOpacity:.55},onEachFeature:(f,l)=>{const d=districtForFeature(f);l.bindTooltip(d.name,{sticky:true});l.on('mouseover',()=>{if(l!==activeShape)l.setStyle({fillColor:'#91bee0',fillOpacity:.8,weight:2.5});});l.on('mouseout',()=>{if(l!==activeShape)shapes.resetStyle(l);});l.on('click',()=>selectDistrict(d,l));}}).addTo(map);map.fitBounds(shapes.getBounds(),{padding:[18,18]});document.getElementById('status').textContent=features.length+' district polygons loaded. Click one to view notes.';return;}catch(e){last=e;}}document.getElementById('status').textContent='Map outline unavailable right now: '+(last?last.message:'unknown error')+'. District links remain usable below.';})();
+
+function samePoint(a,b){return Math.abs(a[0]-b[0])<1e-7&&Math.abs(a[1]-b[1])<1e-7;}
+function stitchWays(ways){
+  const pending=ways.filter(w=>w&&w.geometry&&w.geometry.length>1).map(w=>w.geometry.map(p=>[p.lon,p.lat]));
+  const rings=[];
+  while(pending.length){
+    let ring=pending.shift(),guard=0;
+    while(!samePoint(ring[0],ring[ring.length-1])&&guard++<ways.length+5){
+      const first=ring[0],last=ring[ring.length-1];
+      let found=-1,mode="";
+      for(let i=0;i<pending.length;i++){
+        const pts=pending[i];
+        if(samePoint(pts[0],last)){found=i;mode="append";break;}
+        if(samePoint(pts[pts.length-1],last)){found=i;mode="append-reverse";break;}
+        if(samePoint(pts[pts.length-1],first)){found=i;mode="prepend";break;}
+        if(samePoint(pts[0],first)){found=i;mode="prepend-reverse";break;}
+      }
+      if(found<0)break;
+      let pts=pending.splice(found,1)[0];
+      if(mode==="append")ring=ring.concat(pts.slice(1));
+      if(mode==="append-reverse")ring=ring.concat(pts.slice(0,-1).reverse());
+      if(mode==="prepend")ring=pts.slice(0,-1).concat(ring);
+      if(mode==="prepend-reverse")ring=pts.slice(1).reverse().concat(ring);
+    }
+    if(ring.length>=4){
+      if(!samePoint(ring[0],ring[ring.length-1]))ring.push(ring[0]);
+      rings.push(ring);
+    }
+  }
+  return rings;
+}
+function overpassRelationToFeature(rel){
+  const members=rel.members||[];
+  const outer=stitchWays(members.filter(m=>m.type==="way"&&(m.role==="outer"||!m.role)));
+  if(!outer.length)return null;
+  const coords=outer.map(r=>[r]);
+  const props=rel.tags||{};
+  return {type:"Feature",id:rel.id,properties:{...props,name:props.name||props["official_name"]||"Unnamed district"},geometry:coords.length===1?{type:"Polygon",coordinates:coords[0]}:{type:"MultiPolygon",coordinates:coords}};
+}
+async function fetchDistrictBoundaries(endpoint){
+  const query='[out:json][timeout:90];area["ISO3166-2"="IN-AP"]["admin_level"="4"]->.ap;relation["boundary"="administrative"]["admin_level"="5"](area.ap);out tags geom;';
+  const response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},body:"data="+encodeURIComponent(query)});
+  if(!response.ok)throw new Error("Overpass HTTP "+response.status);
+  const payload=await response.json();
+  return (payload.elements||[]).filter(e=>e.type==="relation").map(overpassRelationToFeature).filter(Boolean);
+}
+function districtForFeature(feature){
+  const p=feature.properties||{};
+  const keys=["name","official_name","alt_name","short_name","name:en","name:te"];
+  for(const key of keys){
+    const raw=p[key]; if(!raw)continue;
+    for(const candidate of String(raw).split(";")){
+      const hit=lookup.get(norm(candidate.trim())); if(hit)return hit;
+    }
+  }
+  return null;
+}
+(async()=>{
+  const endpoints=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter","https://overpass.private.coffee/api/interpreter"];
+  let failure=null;
+  for(const endpoint of endpoints){
+    try{
+      const features=await fetchDistrictBoundaries(endpoint);
+      const matched=features.map(f=>({feature:f,district:districtForFeature(f)})).filter(x=>x.district);
+      const unique=new Map(matched.map(x=>[x.district.name,x]));
+      const absent=districts.filter(d=>!unique.has(d.name)).map(d=>d.name);
+      if(unique.size<28)throw new Error("Only "+unique.size+" of 28 district boundaries matched. Missing: "+absent.join(", "));
+      const fc={type:"FeatureCollection",features:[...unique.values()].map(x=>x.feature)};
+      shapes=L.geoJSON(fc,{style:{color:"#fff",weight:1.5,fillColor:"#5794c7",fillOpacity:.56},onEachFeature:(f,l)=>{
+        const d=districtForFeature(f);l.bindTooltip(d.name,{sticky:true});
+        l.on("mouseover",()=>{if(l!==activeShape)l.setStyle({fillColor:"#91bee0",fillOpacity:.82,weight:2.5});});
+        l.on("mouseout",()=>{if(l!==activeShape)shapes.resetStyle(l);});
+        l.on("click",()=>selectDistrict(d,l));
+      }}).addTo(map);
+      map.fitBounds(shapes.getBounds(),{padding:[18,18]});
+      document.getElementById("status").textContent="All 28 current district boundaries loaded, including Markapuram, Polavaram and Sri Potti Sriramulu Nellore.";
+      return;
+    }catch(error){failure=error;}
+  }
+  document.getElementById("status").textContent="The district list remains available, but the live boundary service could not provide all 28 districts: "+(failure?failure.message:"unknown error");
+})();
 </script></body></html>
